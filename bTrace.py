@@ -65,6 +65,9 @@ class TracerProperties(bpy.types.PropertyGroup):
         description="Choose which type of handle to use when curve is created",
         default="VECTOR")
     
+    # Option to Duplicate Mesh
+    TRbrushDuplicate = bpy.props.BoolProperty(name="Apply to copy of object", default=False, description="Apply curve to a copy of object")
+    
     # Object Handle properties    
     TRobjectHandleType = bpy.props.EnumProperty(name="Handle",
         items=(("FREE", "Free", "Use Free Handle Type"),
@@ -86,7 +89,7 @@ class TracerProperties(bpy.types.PropertyGroup):
     TRfcnoise_timescale = bpy.props.FloatProperty(name="Time Scale", min=1, max=500, default=50, description="Adjust the time scale")
     
 
-# start panel
+# Draw panel in Toolbar
 class addTracerPanel(bpy.types.Panel):
     bl_label = "Curve Tracer"
     bl_space_type = 'VIEW_3D'
@@ -107,6 +110,7 @@ class addTracerPanel(bpy.types.Panel):
         box = self.layout.box()
         box.prop(bTrace, "TRbrushSplineType")
         box.prop(bTrace, "TRbrushHandleType")
+        box.prop(bTrace, "TRbrushDuplicate")
         box.operator("object.brushtrace", text="Trace it!", icon="FORCE_MAGNETIC")
         row = self.layout.row()
         
@@ -143,8 +147,19 @@ class addTracerPanel(bpy.types.Panel):
         box.operator("object.fcnoise", text="Make Some Noise!", icon="RNDCURVE")
         
 
+ # These are some tools to hopefully use throughout the script
+ 
+def func_object_duplicate_flatten_modifiers(ob, scene):
+    mesh = ob.create_mesh( bpy.context.scene, True, 'PREVIEW' )
+    name = ob.name + "_ASculpt"
+    new_object = bpy.data.objects.new( name, mesh)
+    new_object.data = mesh
+    scene.objects.link(new_object)
+    return new_object
+
 
 ################## ################## ################## ############
+## Brush Trace
 ## creates a curve with a modulated radius joining points of a mesh
 ## this emulates some brush traces - maybe work on a copy of object
 ################## ################## ################## ############
@@ -152,17 +167,20 @@ class addTracerPanel(bpy.types.Panel):
 class OBJECT_OT_brushtrace(bpy.types.Operator):
     bl_idname = "object.brushtrace"
     bl_label = "Brush Trace"
-    bl_description = "Creates a curve with a modulated radius joining points of a mesh."
+    bl_description = "Creates a curve with a modulated radius joining points of a mesh.tttt"
     
     def invoke(self, context, event):
         import bpy, random, mathutils
         from mathutils import Vector
         
-        noise_vertices = False # add pre-noise to geometry
+        noise_vertices = False # add pre-noise to geometry  
         modular_curve = True    # modulate the resulting curve
         TRbrushHandle = bpy.context.window_manager.curve_tracer.TRbrushHandleType # Get Handle selection
         TRbrushSpline = bpy.context.window_manager.curve_tracer.TRbrushSplineType # Get Spline selection
-           
+        
+        # This duplicates the Mesh
+        bpy.ops.object.duplicate_move()
+        
         # add noise to mesh
         def mover(obj):
             scale = 0.05 
@@ -203,8 +221,8 @@ class OBJECT_OT_brushtrace(bpy.types.Operator):
             bpy.ops.object.mode_set()
             bpy.ops.object.convert(target='CURVE')
             bpy.ops.object.editmode_toggle()
-            bpy.ops.curve.spline_type_set(type=TRbrushSpline)
-            bpy.ops.curve.handle_type_set(type=TRbrushHandle)
+            bpy.ops.curve.spline_type_set(type=TRbrushSpline) # Set spline type to custom property in panel
+            bpy.ops.curve.handle_type_set(type=TRbrushHandle) # Set handle type to custom property in panel
             bpy.ops.object.editmode_toggle()
             obj.data.use_fill_front = obj.data.use_fill_back = False
             obj.data.bevel_resolution = 4
@@ -237,6 +255,7 @@ class OBJECT_OT_brushtrace(bpy.types.Operator):
 
 
 ################## ################## ################## ############
+## Object Trace
 ## join selected objects with a curve + hooks to each node
 ## possible handle types: 'FREE' 'AUTO' 'VECTOR' 'ALIGNED'
 ################## ################## ################## ############
@@ -302,6 +321,7 @@ class OBJECT_OT_objecttrace(bpy.types.Operator):
 
 
 ################## ################## ################## ############
+## Particle Trace
 ## particle tracer - creates a curve from each particle of a system
 ## simple setting: Start/End = 1 | Amount<250 | play with Effectors
 ################## ################## ################## ############
@@ -345,6 +365,7 @@ class OBJECT_OT_particletrace(bpy.types.Operator):
 
 
 ################## ################## ################## ############
+## F-Curve Noise
 ## will add noise modifiers to each selected object f-curves
 ## change type to: 'rotation' | 'location' | 'scale' | '' to effect all
 ## first record a keyframe for this to work (to generate the f-curves)
