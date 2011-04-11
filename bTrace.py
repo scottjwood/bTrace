@@ -20,7 +20,7 @@ END GPL LICENCE BLOCK
 
 bl_info = {
     "name": "bTrace",
-    "author": "Liero 'Original Author', Crazycourier 'Contributor'",
+    "author": "Liero 'Original Author' | crazycourier 'Contributor'",
     "version": (0, 5, ),
     "blender": (2, 5, 6),
     "api": 36064,
