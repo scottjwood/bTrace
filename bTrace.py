@@ -178,7 +178,7 @@ class addTracerPanel(bpy.types.Panel):
 class OBJECT_OT_brushtrace(bpy.types.Operator):
     bl_idname = "object.brushtrace"
     bl_label = "Brush Trace"
-    bl_description = "Creates a curve with a modulated radius joining points of a mesh.tttt"
+    bl_description = "Creates a curve with a modulated radius joining points of a mesh."
     
     def invoke(self, context, event):
         import bpy, random, mathutils
