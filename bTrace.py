@@ -67,6 +67,7 @@ class TracerProperties(bpy.types.PropertyGroup):
     # Brush Curve Settings
     TRbrush_resolution = bpy.props.IntProperty(name="Bevel Resolution", min=1, max=32, default=4, description="Adjust the Bevel resolution")
     TRbrush_depth = bpy.props.FloatProperty(name="Bevel Depth", min=0.0, max=100., default=0.0125, description="Adjust the Bevel depth")
+    TRbrush_noise = bpy.props.FloatProperty(name="Noise", min=0.0, max=50., default=0.05, description="Adjust noise added to mesh before adding curve")
     
     # Option to Duplicate Mesh
     TRbrushDuplicate = bpy.props.BoolProperty(name="Apply to copy of object", default=False, description="Apply curve to a copy of object")
@@ -123,9 +124,10 @@ class addTracerPanel(bpy.types.Panel):
         box = self.layout.box()
         box.prop(bTrace, "TRbrushSplineType")
         box.prop(bTrace, "TRbrushHandleType")
-        row = box.row(align=True)
-        row.prop(bTrace, "TRbrush_resolution")
-        row.prop(bTrace, "TRbrush_depth")
+        col = box.column(align=True)
+        col.prop(bTrace, "TRbrush_resolution")
+        col.prop(bTrace, "TRbrush_depth")
+        col.prop(bTrace, "TRbrush_noise")
         box.prop(bTrace, "TRbrushDuplicate")
         box.operator("object.brushtrace", text="Trace it!", icon="FORCE_MAGNETIC")
         row = self.layout.row()
@@ -136,9 +138,9 @@ class addTracerPanel(bpy.types.Panel):
         row.label("Multi-Object Trace", icon="OUTLINER_OB_EMPTY")
         box = self.layout.box()
         box.prop(bTrace, "TRobjectHandleType")
-        row = box.row(align=True)
-        row.prop(bTrace, "TRobject_resolution")
-        row.prop(bTrace, "TRobject_depth")
+        col = box.column(align=True)
+        col.prop(bTrace, "TRobject_resolution")
+        col.prop(bTrace, "TRobject_depth")
         box.operator("object.objecttrace", text="Connect the dots!", icon="OUTLINER_OB_EMPTY")
         row = self.layout.row()
                 
@@ -146,11 +148,10 @@ class addTracerPanel(bpy.types.Panel):
         row = self.layout.row()
         row.label("Particle Trace", icon="PARTICLES")
         box = self.layout.box()
-        box.prop(bTrace, "TRparticle_step")
-        row = box.row(align=True)
-        row.prop(bTrace, "TRparticle_resolution")
-        row.prop(bTrace, "TRparticle_depth")
-        box.label("Best if particle amount < 250")
+        col = box.column(align=True)
+        col.prop(bTrace, "TRparticle_resolution")
+        col.prop(bTrace, "TRparticle_depth")
+        col.prop(bTrace, "TRparticle_step")
         box.operator("object.particletrace", text="Chase 'em!", icon="PARTICLES")
         row = self.layout.row()
         
@@ -162,9 +163,9 @@ class addTracerPanel(bpy.types.Panel):
         row.prop(bTrace, "TRfcnoise_rot")
         row.prop(bTrace, "TRfcnoise_loc")
         row.prop(bTrace, "TRfcnoise_scale")
-        row = box.row(align=True)
-        row.prop(bTrace, "TRfcnoise_amp")
-        row.prop(bTrace, "TRfcnoise_timescale")
+        col = box.column(align=True)
+        col.prop(bTrace, "TRfcnoise_amp")
+        col.prop(bTrace, "TRfcnoise_timescale")
         box.prop(bTrace, "TRfcnoise_key")
         box.operator("object.fcnoise", text="Make Some Noise!", icon="RNDCURVE")
         
@@ -191,6 +192,7 @@ class OBJECT_OT_brushtrace(bpy.types.Operator):
         TRBrushDupli = bpy.context.window_manager.curve_tracer.TRbrushDuplicate # Get duplicate check setting
         TRbrushrez = bpy.context.window_manager.curve_tracer.TRbrush_resolution # Get Bevel resolution 
         TRbrushdepth = bpy.context.window_manager.curve_tracer.TRbrush_depth # Get Bevel Depth
+        TRbrushnoise = bpy.context.window_manager.curve_tracer.TRbrush_noise # Get Bevel Depth
         
         # This duplicates the Mesh
         if TRBrushDupli == True:
@@ -198,7 +200,7 @@ class OBJECT_OT_brushtrace(bpy.types.Operator):
         
         # add noise to mesh
         def mover(obj):
-            scale = 0.05 
+            scale = TRbrushnoise 
             for v in obj.data.vertices:
                 for u in range(3):
                     v.co[u] += scale*(random.random()*2-1)
@@ -400,6 +402,7 @@ class OBJECT_OT_fcnoise(bpy.types.Operator):
         TR_amp = bTrace.TRfcnoise_amp
         TR_timescale = bTrace.TRfcnoise_amp
         TR_addkeyframe = bTrace.TRfcnoise_key
+        
         # This sets properties for Loc, Rot and Scale if they're checked in the Tools window
         noise_rot = 'rotation'
         noise_loc = 'location'
