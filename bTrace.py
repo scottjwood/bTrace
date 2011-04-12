@@ -64,6 +64,9 @@ class TracerProperties(bpy.types.PropertyGroup):
             ("VECTOR", "Vector", "Use Vector Handle Type")),
         description="Choose which type of handle to use when curve is created",
         default="VECTOR")
+    # Brush Curve Settings
+    TRbrush_resolution = bpy.props.IntProperty(name="Bevel Resolution", min=1, max=32, default=4, description="Adjust the Bevel resolution")
+    TRbrush_depth = bpy.props.FloatProperty(name="Bevel Depth", min=0.0, max=100., default=0.0125, description="Adjust the Bevel depth")
     
     # Option to Duplicate Mesh
     TRbrushDuplicate = bpy.props.BoolProperty(name="Apply to copy of object", default=False, description="Apply curve to a copy of object")
@@ -77,8 +80,16 @@ class TracerProperties(bpy.types.PropertyGroup):
         description="Choose which type of handle to use when curve is created",
         default="VECTOR")
     
+    # Object Curve Settings
+    TRobject_resolution = bpy.props.IntProperty(name="Bevel Resolution", min=1, max=32, default=3, description="Adjust the Bevel resolution")
+    TRobject_depth = bpy.props.FloatProperty(name="Bevel Depth", min=0.0, max=100., default=0.005, description="Adjust the Bevel depth")
+    
     # Particle Step Size    
     TRparticle_step = bpy.props.IntProperty(name="Step Size", min=1, max=15, default=5, description="Adjust the step size")
+    
+    # Particle Curve Setting
+    TRparticle_resolution = bpy.props.IntProperty(name="Bevel Resolution", min=1, max=32, default=3, description="Adjust the Bevel resolution")
+    TRparticle_depth = bpy.props.FloatProperty(name="Bevel Depth", min=0.0, max=100., default=0.005, description="Adjust the Bevel depth")
     
     # F-Curve Modifier Properties
     TRfcnoise_rot = bpy.props.BoolProperty(name="Rotation", default=False, description="Affect Rotation")
@@ -88,6 +99,8 @@ class TracerProperties(bpy.types.PropertyGroup):
     TRfcnoise_amp = bpy.props.IntProperty(name="Amp", min=1, max=500, default=5, description="Adjust the amplitude")
     TRfcnoise_timescale = bpy.props.FloatProperty(name="Time Scale", min=1, max=500, default=50, description="Adjust the time scale")
     
+    #  Add Keyframe setting for F-Curve
+    TRfcnoise_key = bpy.props.BoolProperty(name="Add Keyframe", default=False, description="Keyframe is needed for tool, this adds a LocRotScale keyframe")
 
 # Draw panel in Toolbar
 class addTracerPanel(bpy.types.Panel):
@@ -110,6 +123,9 @@ class addTracerPanel(bpy.types.Panel):
         box = self.layout.box()
         box.prop(bTrace, "TRbrushSplineType")
         box.prop(bTrace, "TRbrushHandleType")
+        row = box.row(align=True)
+        row.prop(bTrace, "TRbrush_resolution")
+        row.prop(bTrace, "TRbrush_depth")
         box.prop(bTrace, "TRbrushDuplicate")
         box.operator("object.brushtrace", text="Trace it!", icon="FORCE_MAGNETIC")
         row = self.layout.row()
@@ -120,6 +136,9 @@ class addTracerPanel(bpy.types.Panel):
         row.label("Multi-Object Trace", icon="OUTLINER_OB_EMPTY")
         box = self.layout.box()
         box.prop(bTrace, "TRobjectHandleType")
+        row = box.row(align=True)
+        row.prop(bTrace, "TRobject_resolution")
+        row.prop(bTrace, "TRobject_depth")
         box.operator("object.objecttrace", text="Connect the dots!", icon="OUTLINER_OB_EMPTY")
         row = self.layout.row()
                 
@@ -127,8 +146,11 @@ class addTracerPanel(bpy.types.Panel):
         row = self.layout.row()
         row.label("Particle Trace", icon="PARTICLES")
         box = self.layout.box()
-        box.label("Better if particle amount < 250")
         box.prop(bTrace, "TRparticle_step")
+        row = box.row(align=True)
+        row.prop(bTrace, "TRparticle_resolution")
+        row.prop(bTrace, "TRparticle_depth")
+        box.label("Best if particle amount < 250")
         box.operator("object.particletrace", text="Chase 'em!", icon="PARTICLES")
         row = self.layout.row()
         
@@ -136,7 +158,6 @@ class addTracerPanel(bpy.types.Panel):
         row = self.layout.row()
         row.label("F-Curve Noise", icon="RNDCURVE")
         box = self.layout.box()
-        box.label("Object needs initial Keyframe")
         row = box.row(align=True)
         row.prop(bTrace, "TRfcnoise_rot")
         row.prop(bTrace, "TRfcnoise_loc")
@@ -144,19 +165,9 @@ class addTracerPanel(bpy.types.Panel):
         row = box.row(align=True)
         row.prop(bTrace, "TRfcnoise_amp")
         row.prop(bTrace, "TRfcnoise_timescale")
+        box.prop(bTrace, "TRfcnoise_key")
         box.operator("object.fcnoise", text="Make Some Noise!", icon="RNDCURVE")
         
-
- # These are some tools to hopefully use throughout the script
- 
-def func_object_duplicate_flatten_modifiers(ob, scene):
-    mesh = ob.create_mesh( bpy.context.scene, True, 'PREVIEW' )
-    name = ob.name + "_ASculpt"
-    new_object = bpy.data.objects.new( name, mesh)
-    new_object.data = mesh
-    scene.objects.link(new_object)
-    return new_object
-
 
 ################## ################## ################## ############
 ## Brush Trace
@@ -177,9 +188,13 @@ class OBJECT_OT_brushtrace(bpy.types.Operator):
         modular_curve = True    # modulate the resulting curve
         TRbrushHandle = bpy.context.window_manager.curve_tracer.TRbrushHandleType # Get Handle selection
         TRbrushSpline = bpy.context.window_manager.curve_tracer.TRbrushSplineType # Get Spline selection
+        TRBrushDupli = bpy.context.window_manager.curve_tracer.TRbrushDuplicate # Get duplicate check setting
+        TRbrushrez = bpy.context.window_manager.curve_tracer.TRbrush_resolution # Get Bevel resolution 
+        TRbrushdepth = bpy.context.window_manager.curve_tracer.TRbrush_depth # Get Bevel Depth
         
         # This duplicates the Mesh
-        bpy.ops.object.duplicate_move()
+        if TRBrushDupli == True:
+            bpy.ops.object.duplicate_move()
         
         # add noise to mesh
         def mover(obj):
@@ -225,9 +240,9 @@ class OBJECT_OT_brushtrace(bpy.types.Operator):
             bpy.ops.curve.handle_type_set(type=TRbrushHandle) # Set handle type to custom property in panel
             bpy.ops.object.editmode_toggle()
             obj.data.use_fill_front = obj.data.use_fill_back = False
-            obj.data.bevel_resolution = 4
-            obj.data.resolution_u = 12
-            obj.data.bevel_depth = .0125
+            obj.data.bevel_resolution = TRbrushrez # Set resolution to custom property in panel
+            obj.data.resolution_u = 12 
+            obj.data.bevel_depth = TRbrushdepth # Set depth to custom property in panel
             if 'TraceMat' not in bpy.data.materials:
                 TraceMat = bpy.data.materials.new('TraceMat')
                 TraceMat.diffuse_color = ([.02]*3)
@@ -270,6 +285,8 @@ class OBJECT_OT_objecttrace(bpy.types.Operator):
         import bpy
         lista = []
         TRobjectHandle = bpy.context.window_manager.curve_tracer.TRobjectHandleType # Get Handle selection
+        TRobjectrez = bpy.context.window_manager.curve_tracer.TRobject_resolution # Get Bevel resolution 
+        TRobjectdepth = bpy.context.window_manager.curve_tracer.TRobject_depth # Get Bevel Depth
         
         # list objects
         for a in bpy.context.selected_objects:
@@ -286,10 +303,10 @@ class OBJECT_OT_objecttrace(bpy.types.Operator):
 
         # render ready curve
         tracer.resolution_u = 64
-        tracer.bevel_resolution = 5
+        tracer.bevel_resolution = TRobjectrez # Set  belel resolution from Panel options
         tracer.use_fill_front = False
         tracer.use_fill_back = False
-        tracer.bevel_depth = 0.025
+        tracer.bevel_depth = TRobjectdepth # Set bevel depth from Panel options
         mat = bpy.data.materials.new('blue')
         mat.diffuse_color = [0,.5,1]
         mat.use_shadeless = True
@@ -334,8 +351,10 @@ class OBJECT_OT_particletrace(bpy.types.Operator):
     def invoke(self, context, event):
         import bpy
         
-        paso = bpy.context.window_manager.curve_tracer.TRparticle_step    ## step size in frames
-
+        paso = bpy.context.window_manager.curve_tracer.TRparticle_step    # step size in frames
+        TRparticlerez = bpy.context.window_manager.curve_tracer.TRparticle_resolution # Get Bevel resolution 
+        TRparticledepth = bpy.context.window_manager.curve_tracer.TRparticle_depth # Get Bevel Depth
+        
         obj = bpy.context.object
         if obj.particle_systems:
             ps = obj.particle_systems[0]
@@ -357,10 +376,10 @@ class OBJECT_OT_particletrace(bpy.types.Operator):
                         p.handle_right_type='AUTO'
                         p.handle_left_type='AUTO'            
                 tracer.materials.append(mat)
-                tracer.bevel_resolution = 3
+                tracer.bevel_resolution = TRparticlerez # get resolution from panel
                 tracer.use_fill_front = False
                 tracer.use_fill_back = False
-                tracer.bevel_depth = 0.005
+                tracer.bevel_depth = TRparticledepth # get depth from panel
         return{"FINISHED"}
 
 
@@ -380,26 +399,25 @@ class OBJECT_OT_fcnoise(bpy.types.Operator):
         bTrace = bpy.context.window_manager.curve_tracer
         TR_amp = bTrace.TRfcnoise_amp
         TR_timescale = bTrace.TRfcnoise_amp
+        TR_addkeyframe = bTrace.TRfcnoise_key
+        # This sets properties for Loc, Rot and Scale if they're checked in the Tools window
         noise_rot = 'rotation'
         noise_loc = 'location'
         noise_scale = 'scale'
-
         if not bTrace.TRfcnoise_rot:
             noise_rot = 'none'
-        
-            
         if not bTrace.TRfcnoise_loc:
             noise_loc = 'none'
-        
-            
         if not bTrace.TRfcnoise_scale:
             noise_scale = 'none'
-        
             
-        type = noise_loc, noise_rot, noise_scale
+        type = noise_loc, noise_rot, noise_scale # Add settings from panel for type of keyframes
         amplitude = TR_amp
         time_scale = TR_timescale
         
+        # Add keyframes, this is messy and should only add keyframes for what is checked
+        if TR_addkeyframe == True:
+            bpy.ops.anim.keyframe_insert(type="LocRotScale") 
         
         for obj in bpy.context.selected_objects:
             if obj.animation_data:
