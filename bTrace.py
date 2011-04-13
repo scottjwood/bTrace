@@ -395,7 +395,7 @@ class OBJECT_OT_objecttrace(bpy.types.Operator):
 class OBJECT_OT_particletrace(bpy.types.Operator):
     bl_idname = "object.particletrace"
     bl_label = "Particle Trace"
-    bl_description = "Creates a curve from each particle of a system."
+    bl_description = "Creates a curve from each particle of a system. Keeping particle amount under 250 will make this run faster."
     
     def invoke(self, context, event):
         import bpy
