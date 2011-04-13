@@ -103,9 +103,9 @@ class TracerProperties(bpy.types.PropertyGroup):
     #  Add Keyframe setting for F-Curve
     TRfcnoise_key = bpy.props.BoolProperty(name="Add Keyframe", default=False, description="Keyframe is needed for tool, this adds a LocRotScale keyframe")
 
-# Draw panel in Toolbar
-class addTracerPanel(bpy.types.Panel):
-    bl_label = "Curve Tracer"
+# Draw Brush panel in Toolbar
+class addTracerBrushPanel(bpy.types.Panel):
+    bl_label = "bTrace: Brush"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
     
@@ -132,6 +132,20 @@ class addTracerPanel(bpy.types.Panel):
         box.operator("object.brushtrace", text="Trace it!", icon="FORCE_MAGNETIC")
         row = self.layout.row()
         
+ # Draw Multi-Object panel in Toolbar
+class addTracerMultiobjectPanel(bpy.types.Panel):
+    bl_label = "bTrace: Multi-object"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'TOOLS'
+    
+    @classmethod
+    def poll(cls, context):
+        return (context.object is not None)
+
+    def draw(self, context):
+        layout = self.layout
+        
+        bTrace=bpy.context.window_manager.curve_tracer
         
         # Box for Object Trace
         row = self.layout.row()
@@ -143,10 +157,24 @@ class addTracerPanel(bpy.types.Panel):
         col.prop(bTrace, "TRobject_depth")
         box.operator("object.objecttrace", text="Connect the dots!", icon="OUTLINER_OB_EMPTY")
         row = self.layout.row()
-                
+
+# Draw Particle panel in Toolbar
+class addTracerParticlePanel(bpy.types.Panel):
+    bl_label = "bTrace: Particle"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'TOOLS'
+    
+    @classmethod
+    def poll(cls, context):
+        return (context.object is not None)
+
+    def draw(self, context):
+        layout = self.layout
+        
+        bTrace=bpy.context.window_manager.curve_tracer        
         # Box for Particle Trace
         row = self.layout.row()
-        row.label("Particle Trace", icon="PARTICLES")
+        row.label("bTrace: Particle", icon="PARTICLES")
         box = self.layout.box()
         col = box.column(align=True)
         col.prop(bTrace, "TRparticle_resolution")
@@ -154,8 +182,22 @@ class addTracerPanel(bpy.types.Panel):
         col.prop(bTrace, "TRparticle_step")
         box.operator("object.particletrace", text="Chase 'em!", icon="PARTICLES")
         row = self.layout.row()
+
+# Draw F-Curve panel in Toolbar
+class addTracerFcurvePanel(bpy.types.Panel):
+    bl_label = "bTrace: F-Curve Noise"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'TOOLS'
+    
+    @classmethod
+    def poll(cls, context):
+        return (context.object is not None)
+
+    def draw(self, context):
+        layout = self.layout
         
-        # Box for F-Curve Noise
+        bTrace=bpy.context.window_manager.curve_tracer        
+        
         row = self.layout.row()
         row.label("F-Curve Noise", icon="RNDCURVE")
         box = self.layout.box()
@@ -436,7 +478,10 @@ class OBJECT_OT_fcnoise(bpy.types.Operator):
         return{"FINISHED"}
 
 classes = [TracerProperties,
-    addTracerPanel,
+    addTracerBrushPanel,
+    addTracerMultiobjectPanel,
+    addTracerParticlePanel,
+    addTracerFcurvePanel,
     OBJECT_OT_brushtrace,
     OBJECT_OT_objecttrace,
     OBJECT_OT_particletrace,
