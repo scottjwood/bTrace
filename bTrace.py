@@ -280,13 +280,18 @@ class OBJECT_OT_brushtrace(bpy.types.Operator):
             bpy.ops.object.mode_set()
             bpy.ops.object.convert(target='CURVE')
             bpy.ops.object.editmode_toggle()
-            bpy.ops.curve.spline_type_set(type=TRbrushSpline) # Set spline type to custom property in panel
-            bpy.ops.curve.handle_type_set(type=TRbrushHandle) # Set handle type to custom property in panel
+            # Set spline type to custom property in panel
+            bpy.ops.curve.spline_type_set(type=TRbrushSpline) 
+            # Set handle type to custom property in panel
+            bpy.ops.curve.handle_type_set(type=TRbrushHandle) 
             bpy.ops.object.editmode_toggle()
             obj.data.use_fill_front = obj.data.use_fill_back = False
-            obj.data.bevel_resolution = TRbrushrez # Set resolution to custom property in panel
+            # Set resolution to custom property in panel
+            obj.data.bevel_resolution = TRbrushrez 
             obj.data.resolution_u = 12 
-            obj.data.bevel_depth = TRbrushdepth # Set depth to custom property in panel
+            # Set depth to custom property in panel
+            obj.data.bevel_depth = TRbrushdepth 
+            
             if 'TraceMat' not in bpy.data.materials:
                 TraceMat = bpy.data.materials.new('TraceMat')
                 TraceMat.diffuse_color = ([.02]*3)
