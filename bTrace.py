@@ -67,7 +67,7 @@ class TracerProperties(bpy.types.PropertyGroup):
     # Brush Curve Settings
     TRbrush_resolution = bpy.props.IntProperty(name="Bevel Resolution", min=1, max=32, default=4, description="Adjust the Bevel resolution")
     TRbrush_depth = bpy.props.FloatProperty(name="Bevel Depth", min=0.0, max=100., default=0.0125, description="Adjust the Bevel depth")
-    TRbrush_noise = bpy.props.FloatProperty(name="Noise", min=0.0, max=50., default=0.05, description="Adjust noise added to mesh before adding curve")
+    TRbrush_noise = bpy.props.FloatProperty(name="Noise", min=0.0, max=50., default=0.00, description="Adjust noise added to mesh before adding curve")
     
     # Option to Duplicate Mesh
     TRbrushDuplicate = bpy.props.BoolProperty(name="Apply to copy of object", default=False, description="Apply curve to a copy of object")
@@ -126,8 +126,6 @@ class addTracerBrushPanel(bpy.types.Panel):
         bTrace=bpy.context.window_manager.curve_tracer
         
         # Box for Brush Trace
-        row = self.layout.row()
-        row.label("Brush Trace", icon="FORCE_MAGNETIC")
         box = self.layout.box()
         box.prop(bTrace, "TRbrushSplineType")
         box.prop(bTrace, "TRbrushHandleType")
@@ -155,8 +153,6 @@ class addTracerMultiobjectPanel(bpy.types.Panel):
         bTrace=bpy.context.window_manager.curve_tracer
         
         # Box for Object Trace
-        row = self.layout.row()
-        row.label("Multi-Object Trace", icon="OUTLINER_OB_EMPTY")
         box = self.layout.box()
         box.prop(bTrace, "TRobjectHandleType")
         col = box.column(align=True)
@@ -180,8 +176,6 @@ class addTracerParticlePanel(bpy.types.Panel):
         
         bTrace=bpy.context.window_manager.curve_tracer        
         # Box for Particle Trace
-        row = self.layout.row()
-        row.label("bTrace: Particle", icon="PARTICLES")
         box = self.layout.box()
         col = box.column(align=True)
         col.prop(bTrace, "TRparticle_resolution")
@@ -205,8 +199,6 @@ class addTracerFcurvePanel(bpy.types.Panel):
         
         bTrace=bpy.context.window_manager.curve_tracer        
         
-        row = self.layout.row()
-        row.label("F-Curve Noise", icon="RNDCURVE")
         box = self.layout.box()
         row = box.row(align=True)
         row.prop(bTrace, "TRfcnoise_rot")
@@ -229,6 +221,7 @@ class OBJECT_OT_brushtrace(bpy.types.Operator):
     bl_idname = "object.brushtrace"
     bl_label = "Brush Trace"
     bl_description = "Creates a curve with a modulated radius joining points of a mesh."
+    bl_options = {'REGISTER', 'UNDO'}
     
     def invoke(self, context, event):
         import bpy, random, mathutils
@@ -315,8 +308,7 @@ class OBJECT_OT_brushtrace(bpy.types.Operator):
         # start
         obj = bpy.context.object
         if obj and obj.type == 'MESH':
-            if noise_vertices: 
-                mover(obj)
+            mover(obj)
             draw (obj)
             curve(obj)
             if modular_curve: 
@@ -404,6 +396,7 @@ class OBJECT_OT_particletrace(bpy.types.Operator):
     bl_idname = "object.particletrace"
     bl_label = "Particle Trace"
     bl_description = "Creates a curve from each particle of a system. Keeping particle amount under 250 will make this run faster."
+    bl_options = {'REGISTER', 'UNDO'}
     
     def invoke(self, context, event):
         import bpy
@@ -450,6 +443,8 @@ class OBJECT_OT_particletrace(bpy.types.Operator):
 class OBJECT_OT_fcnoise(bpy.types.Operator):
     bl_idname = "object.fcnoise"
     bl_label = "F-curve Noise"
+    bl_options = {'REGISTER', 'UNDO'}
+    
     def invoke(self, context, event):
         import bpy, random
         
