@@ -103,6 +103,13 @@ class TracerProperties(bpy.types.PropertyGroup):
     #  Add Keyframe setting for F-Curve
     TRfcnoise_key = bpy.props.BoolProperty(name="Add Keyframe", default=False, description="Keyframe is needed for tool, this adds a LocRotScale keyframe")
 
+# attempt to make controls dynamic
+def curveBevelControl():
+    bTrace=bpy.context.window_manager.curve_tracer
+    obj.data.bevel_depth = bTrace.TRbrush_depth
+    
+    
+    
 # Draw Brush panel in Toolbar
 class addTracerBrushPanel(bpy.types.Panel):
     bl_label = "bTrace: Brush"
@@ -329,6 +336,7 @@ class OBJECT_OT_objecttrace(bpy.types.Operator):
     bl_idname = "object.objecttrace"
     bl_label = "Object Trace"
     bl_description = "Join selected objects with a curve and add hooks to each node."
+    bl_options = {'REGISTER', 'UNDO'}
     
     def invoke(self, context, event):
         import bpy
