@@ -483,7 +483,9 @@ class OBJECT_OT_fcnoise(bpy.types.Operator):
                         n.phase = int(random.random() * 999)
         return{"FINISHED"}
 
-## Start Atoms Curve script
+## Start Atoms Curve script modifications
+## Atom has contributed a significant amount of code to the community. You can see more
+## of his work here: http://blenderartists.org/forum/showthread.php?214197-Atom-s-Link-Page
 import bpy
 import threading
 import time
