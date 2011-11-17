@@ -479,7 +479,312 @@ class OBJECT_OT_fcnoise(bpy.types.Operator):
                         n.phase = int(random.random() * 999)
         return{"FINISHED"}
 
-       
+######################################################################
+###     Start Atoms Curve script
+###     See more of Atom's great scripts here: 
+###     http://blenderartists.org/forum/showthread.php?214197-Atom-s-Link-Page
+######################################################################
+
+import bpy
+import threading
+import time
+
+from mathutils import Vector
+
+# Global busy flag.
+isBusy = False
+lastFrame = -1
+
+############################################################################
+# Colorized logging class.
+############################################################################
+import platform
+
+import logging
+import logging.handlers
+
+log_file_name = 'atoms_frame_change.log'
+
+# Set up a specific logger with our desired output level
+bt_logger = logging.getLogger('FrameChangeLogger')
+bt_logger.setLevel(logging.DEBUG)
+
+# The rotating file handler keeps only the last line (actually 32 bytes) written to the log.
+# The last line is examined for the thread name displayed by the loggin formatter,
+# which is used to determine if we are rendering.
+handler = logging.handlers.RotatingFileHandler(log_file_name, maxBytes=32, backupCount=0)
+f  = logging.Formatter('(%(threadName)-10s) %(message)s')
+handler.setFormatter(f)
+bt_logger.addHandler(handler)
+
+if platform.system() == "Windows":
+    # For windows we need to use ctypes win32.dll
+    import ctypes
+
+class console:
+    PREFIX = "  "
+    CONSOLE_PREFIX = ""
+    CONSOLE_SEPARATOR = ""
+    CONSOLE_HANDLE = None
+    CONSOLE_COLOR_CLEAR = None
+    DEBUG = True
+    LOGGING = True
+    
+    # Windows API colors.
+    STD_OUTPUT_HANDLE = -11
+    FOREGROUND_BLUE_DRK    = 0x0001 # text color contains dark blue.
+    FOREGROUND_GREEN_DRK    = 0x0002 # text color contains green.
+    FOREGROUND_CYAN_DRK    = 0x0003 # text color contains cyan.
+    FOREGROUND_RED_DRK    = 0x0004 # text color contains red.
+    FOREGROUND_PLUM = 0x0005 # text color contains purple.
+    FOREGROUND_GOLD    = 0x0006 # text color contains gold.
+    FOREGROUND_WHITE    = 0x0007 # text color contains white.
+    FOREGROUND_GREY    = 0x0008 # text color contains grey.
+    FOREGROUND_BLUE    = 0x0009 # text color contains blue.
+    FOREGROUND_IVORY    = 0x000f # text color contains ivory.
+    FOREGROUND_YELLOW    = 0x000e # text color contains yellow.
+    FOREGROUND_PINK    = 0x000d # text color contains pink.
+    FOREGROUND_RED    = 0x000c # text color contains red.
+    FOREGROUND_CYAN    = 0x000b # text color contains cyan.
+    FOREGROUND_GREEN    = 0x000a # text color contains green.
+    
+    # Linux ANSII colors.
+    HEADER = '[95m'
+    OKBLUE = '[94m'
+    OKGREEN = '[92m'
+    WARNING = '[93m'
+    FAIL = '[91m'
+    ENDC = '[0m'
+            
+    def get_csbi_attributes(handle):
+        # Based on IPython's winconsole.py, written by Alexander Belchenko
+        import struct
+        csbi = ctypes.create_string_buffer(22)
+        res = ctypes.windll.kernel32.GetConsoleScreenBufferInfo(handle, csbi)
+        assert res
+    
+        (bufx, bufy, curx, cury, wattr,
+        left, top, right, bottom, maxx, maxy) = struct.unpack("hhhhHhhhhhh", csbi.raw)
+        return wattr
+    
+    def __init__(self):
+        if (platform.system() == "Linux") or (platform.system() == "Darwin"):
+            pass
+
+        if platform.system() == "Windows":
+            self.CONSOLE_HANDLE = ctypes.windll.kernel32.GetStdHandle(self.STD_OUTPUT_HANDLE)
+            try:
+                self.CONSOLE_COLOR_CLEAR = get_csbi_attributes(self.CONSOLE_HANDLE)
+            except:
+                pass
+
+    def display(self, passedItem=""):
+        if self.DEBUG == True:
+            if platform.system() == "Windows":
+                # Turn on colorization.
+                # Pick a color based upon the contents of passedItem.
+                color_to_use = self.FOREGROUND_GREY
+                if "begin" in passedItem.lower():
+                    color_to_use = self.FOREGROUND_BLUE 
+                if "end" in passedItem.lower():
+                    color_to_use = self.FOREGROUND_BLUE 
+                if "frame" in passedItem.lower():
+                    color_to_use = self.FOREGROUND_GREEN_DRK
+                if "registry" in passedItem.lower():
+                    color_to_use = self.FOREGROUND_CYAN 
+                if "update" in passedItem.lower():
+                    color_to_use = self.FOREGROUND_IVORY
+                if "deferred" in passedItem.lower():
+                    color_to_use = self.FOREGROUND_PLUM
+                if "?" in passedItem.lower():
+                    color_to_use = self.FOREGROUND_CYAN_DRK
+                if "warning" in passedItem.lower():
+                    color_to_use = self.FOREGROUND_GOLD 
+                if "error" in passedItem.lower():
+                    color_to_use = self.FOREGROUND_RED 
+                ctypes.windll.kernel32.SetConsoleTextAttribute(self.CONSOLE_HANDLE, color_to_use)
+            else:
+                # Pick a color based upon the contents of passedItem.
+                color_to_use = ""
+                if "error" in passedItem.lower():
+                    color_to_use = self.WARNING 
+                if "warning" in passedItem.lower():
+                    color_to_use = self.HEADER 
+                if "begin" in passedItem.lower():
+                    color_to_use = self.OKBLUE 
+                if "end" in passedItem.lower():
+                    color_to_use = self.OKBLUE 
+                if "frame" in passedItem.lower():
+                    color_to_use = self.OKGREEN 
+                           
+            if self.LOGGING == True:
+                thread_name = "(" + self.returnThreadingName() + ") "
+                if platform.system() == "Windows":
+                    print(thread_name + self.CONSOLE_PREFIX + self.CONSOLE_SEPARATOR + passedItem)
+                else:
+                    #Linux or OSX.
+                    print(color_to_use + thread_name + self.CONSOLE_PREFIX + self.CONSOLE_SEPARATOR + passedItem)
+
+            if platform.system() == "Windows":
+                # Turn off colorization.
+                #ctypes.windll.kernel32.SetConsoleTextAttribute(self.CONSOLE_HANDLE, self.CONSOLE_COLOR_CLEAR)
+                pass
+
+    def returnThreadingName (self):
+        bt_logger.debug("")
+    
+        # Read the results back in.
+        myFile = open(log_file_name)
+        block = myFile.read()
+        msg = str(block)
+        myFile.close()
+        
+        n = msg.find(")")
+        result = msg[1:n]
+        
+        return result
+                    
+    def addToPrefix (self):
+        self.CONSOLE_PREFIX = self.PREFIX + self.CONSOLE_PREFIX
+        
+    def removeFromPrefix (self):
+        lCP = int(len(self.CONSOLE_PREFIX))
+        lPI = int(len (self.PREFIX))
+        if lPI > lCP:
+            #Just blank the prefix.
+            self.CONSOLE_PREFIX = ""
+        else:
+            #Chop off from the right by length of passed item.
+            n = lCP-lPI
+            self.CONSOLE_PREFIX = self.CONSOLE_PREFIX[lPI:]
+
+
+# Create an instance of the color log class for the entire script to use for display.
+btLog = console()
+
+# Put your main frame change code here.
+def frameRefesh (passedFrame):
+    btLog.display("Update on frame #" + str(passedFrame))
+    startPercent = passedFrame/2.0
+    endPercent = startPercent + 20.0
+    updateTaperCurve ("cu_taper", startPercent, endPercent, 0.2, 0.025)
+
+def updateTaperCurve (passedCurveName, passedPositionPercent, passedTailPercent, passedSlopeStart, passedSlopeEnd): 
+    # NOTE: 
+    #   passedCurveName is the name of the curve, not the name of the curve object.
+    #   passedPositionPercent is where the Taper is going to start along any given curve. (derived by tracking an empty along a curve)
+    #   passedTailPercent is where the Taper is going to end along any given curve.
+    #   passedSlopeStart is in the range of 0.0 to 1.0. It repesents the slope of the starting point of the taper.
+    #   passedSlopeEnd is in the range of 0.0 to 1.0. It represents the slope of the end point of the taper.
+    
+    # This code relies on the passed curve to have six points that were created by makeTaperCurve.
+    spline = bpy.data.curves[passedCurveName].splines[0]
+    if len(spline.bezier_points) == 6:
+        # 6 points, this curve may have been made by us.
+        # We should probably do more bounds checking in here, but lets assume our provided values will keep us in range.
+        
+        s1 = (passedPositionPercent/100.0)
+        p = spline.bezier_points[1]
+        p.co = Vector((s1,0.0,0.0))
+        
+        s2 = s1 + passedSlopeStart          
+        p = spline.bezier_points[2]
+        p.co = Vector((s2,1.0,0.0))
+
+        e1 = (passedTailPercent/100.0)
+        if e1 > 0.99: e1 = 0.99
+        p = spline.bezier_points[3]
+        p.co = Vector((e1,1.0,0.0))
+        
+        e2 = e1 + passedSlopeEnd          
+        p = spline.bezier_points[4]
+        p.co = Vector((e2,0.0,0.0))
+                
+    else:
+        btLog.display("Spline from [" + passedCurveName + "] was not created by makeTaperCurve.")
+   
+def makeTaperCurve (passedTaperName):
+    cu_taper = bpy.data.curves.new("cu_"+passedTaperName,'CURVE')
+    cu_taper.dimensions = '2D'
+    spline = cu_taper.splines.new('BEZIER')
+    spline.bezier_points.add(5)
+    taper = bpy.data.objects.new(passedTaperName,cu_taper)
+    bpy.data.scenes[0].objects.link(taper)
+
+    #Let's create six points in this curve.
+    for n in range(6):
+        p = spline.bezier_points[n]
+        if n == 0:myLocation = Vector((0.0,0.0,0.0))
+        
+        # Slope defines shape.
+        if n == 1:myLocation = Vector((0.1,0.0,0.0)) # Hook #1 here.
+        if n == 2:myLocation = Vector((0.2,1.0,0.0)) # Hook #1 here.
+        
+        # Slope defines shape.
+        if n == 3:myLocation = Vector((0.8,1.0,0.0)) # Hook #2 here.
+        if n == 4:myLocation = Vector((0.9,0.0,0.0)) # Hook #2 here.
+        
+        if n == 5:myLocation = Vector((1.0,0.0,0.0))
+        p.co = myLocation
+        p.handle_right_type='VECTOR'
+        p.handle_left_type='VECTOR'
+     
+def isRendering ():
+    # An attempt trying to detect if we are currently rendering.
+    thread_name = btLog.returnThreadingName()
+    if thread_name[0:5].lower() == "dummy":
+        # Blender launches a dummy thread when rendering.
+        return True
+    else:
+        return False
+    '''
+    try:
+        # If this line generates an error, then we are probably rendering
+        name = bpy.context.scene.name
+        return False
+    except:
+        return True   
+    '''
+  
+# Used for a deferred refresh when rendering.
+def thread_review(lock, passedFrame,passedSleepTime):
+    global isBusy, lastFrame
+    
+    lastFrame = passedFrame
+    time.sleep(passedSleepTime) # Feel free to alter time in seconds as needed.   
+    btLog.display("WARNING:" + "DEFERRED refresh for frame:" + str(passedFrame))
+    isBusy = True
+    frameRefesh(passedFrame)
+    isBusy = False  
+
+def frameChange(passedFrame):
+    global isBusy, lastFrame
+    
+    if isBusy == False:
+        r = isRendering()
+        if r == False:
+            # We are probably not rendering.
+            if passedFrame != lastFrame:
+                # Only process when frames are different.
+                isBusy = True
+                btLog.display("FRAME:" + str(passedFrame))
+                frameRefesh(passedFrame)
+                lastFrame = passedFrame
+                isBusy = False
+        else:
+            # When blender is rendering, it launches a "Dummy" thread wich has limited functionality.
+            # So the goal here is to abandon this limited thread as quickly as possible.
+            # We launch a full-independent thread to handle this refresh in a deferred state. (0.1 seconds is not very long when rendering)
+            btLog.display("DEFERRED rendering frame:" + str(passedFrame))
+            lock = threading.Lock()
+            lock_holder = threading.Thread(target=thread_review, args=(lock,passedFrame,0.1), name='FrameChange_RENDERING_'+ str(int(passedFrame)))
+            lock_holder.setDaemon(True)
+            lock_holder.start()
+    else:
+        btLog.display("BUSY frame:" + str(passedFrame))
+    return 0.0
+
+bpy.app.driver_namespace['frameChange'] = frameChange            
     
 
 classes = [TracerProperties,
