@@ -7,7 +7,7 @@
 
 #This program is distributed in the hope that it will be useful,
 #but WITHOUT ANY WARRANTY; without even the implied warranty of
-#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.	See the
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.    See the
 #GNU General Public License for more details.
 
 #You should have received a copy of the GNU General Public License
@@ -18,50 +18,41 @@
 
 bl_info = {
     'name': "bTrace",
-    'author': "liero, crazycourier",
-    'version': (0, 5, ),
-    'blender': (2, 6, 0),
+    'author': "liero, crazycourier, Atom, Meta-Androcto",
+    'version': (1, 0, ),
+    'blender': (2, 6, 4),
     'location': "View3D > Tools",
-    'description': "Tools for converting objects particles into curves",
+    'description': "Tools for converting/animating objects/particles into curves",
     'warning': "Still under development, bug reports appreciated",
     'wiki_url': "",
     'tracker_url': "",
     'category': "Mesh"
     }
 
-# Simple script to convert mesh into curves.
-# Script has four main functions:
-# 1. Trace the verts of an object to create a curve
-# 2. Connect each selected object by a single curve, the anchor points of
-# the curve are hooked to the respective object centers
-# 3. Trace the path of particles with a curve
-# 4. Add random F-Curve noise to any object
-
-from .bTrace_26 import *
 import bpy
+from .bTrace import *
 from bpy.props import *
 
 classes = [TracerProperties,
-    addTracerBrushPanel,
-    addTracerMultiobjectPanel,
-    addTracerParticlePanel,
-    addTracerFcurvePanel,
-    OBJECT_OT_brushtrace,
+    addTracerObjectPanel,
+    OBJECT_OT_convertcurve,
+    OBJECT_OT_addtracermat,
     OBJECT_OT_objecttrace,
+    OBJECT_OT_objectconnect,
+    OBJECT_OT_writing,
     OBJECT_OT_particletrace,
+    OBJECT_OT_traceallparticles,
+    OBJECT_OT_curvegrow,
+    OBJECT_OT_reset,
     OBJECT_OT_fcnoise]
 
 def register():
     for c in classes:
         bpy.utils.register_class(c)
     bpy.types.WindowManager.curve_tracer = bpy.props.PointerProperty(type=TracerProperties)
-
-
 def unregister():
     for c in classes:
         bpy.utils.unregister_class(c)
     del bpy.types.WindowManager.curve_tracer
-
-
 if __name__ == "__main__":
     register()
