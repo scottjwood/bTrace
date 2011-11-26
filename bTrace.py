@@ -130,7 +130,7 @@ class addTracerObjectPanel(bpy.types.Panel):
         TRanimate = bTrace.TRanimate
         TRanim_auto, TRcurve_join = bTrace.TRanim_auto, bTrace.TRcurve_join
         TRsettings_particleTrace, TRsettings_particleConnect = bTrace.TRsettings_particleTrace, bTrace.TRsettings_particleConnect
-
+        sel = bpy.context.selected_objects
         ############################
         ### Object Trace
         ############################
