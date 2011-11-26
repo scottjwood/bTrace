@@ -101,7 +101,7 @@ class TracerProperties(bpy.types.PropertyGroup):
     TRconvert_conti = p.BoolProperty(name='Continuous', default=True, description='Create a continuous curve using verts from mesh')
     TRconvert_everyedge = p.BoolProperty(name='Every Edge', default=False, description='Create a curve from all verts in a mesh')
     TRconvert_edgetype = p.EnumProperty(name="Edge Type for Curves", 
-        items=(("CONTI", "Continuous", "Create a continuous curve using verts from mesh"),  ("EDGEALL", "All Edges", "Create a curve from every edge in a mesh"), ("SHARP", "Sharp Edges", "Create a curve from all edges marked as sharp") ), 
+        items=(("CONTI", "Continuous", "Create a continuous curve using verts from mesh"),  ("EDGEALL", "All Edges", "Create a curve from every edge in a mesh")), 
         description="Choose which type of spline to use when curve is created", default="CONTI")
     TRconvert_joinbefore = p.BoolProperty(name="Join objects before convert", default=False, description='Join all selected mesh to one object before converting to mesh')
 
