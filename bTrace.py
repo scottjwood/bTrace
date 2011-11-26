@@ -18,7 +18,7 @@
 
 bl_info = {
     'name': "bTrace",
-    'author': "liero, crazycourier, Atom, Meta-Androcto",
+    'author': "liero, crazycourier, Atom, Meta-Androcto, MacKracken",
     'version': (1, 0, ),
     'blender': (2, 6, 4),
     'location': "View3D > Tools",
@@ -33,12 +33,8 @@ bl_info = {
 ### [   ]  Make grow animation happen to all selected, not just current
 ### [   ]  Adjust bevel radius for grow curve
 ### [   ]  Add Smooth option to curves
-### [   ] Grow Curve calculate duration
 ### [   ] Fix F-Curve Time Scale
 ### [   ] Grease Pencil doesn't show if nothing selected
-### [   ]  i made a 3dview header that stores the objects in the order they were selected and then writes a variable at bpy.selection that has the names of those objects
-### Doesn't Respect selection order
-
     
     
 import bpy
@@ -691,13 +687,13 @@ class OBJECT_OT_traceallparticles(bpy.types.Operator):
         
         bTrace = bpy.context.window_manager.curve_tracer
         TRparticleHandle = bTrace.TRcurve_handle # Get Handle selection
-        TRparticleSpline = bpy.context.window_manager.curve_tracer.TRcurve_spline # Get Spline selection  
-        TRstepSize = bpy.context.window_manager.curve_tracer.TRparticle_step    # step size in frames
-        TRparticlerez = bpy.context.window_manager.curve_tracer.TRcurve_resolution # Get Bevel resolution 
-        TRparticledepth = bpy.context.window_manager.curve_tracer.TRcurve_depth # Get Bevel Depth
-        TRparticleauto = bpy.context.window_manager.curve_tracer.TRparticle_auto # Get Auto Time Range
-        TRparticle_f_start = bpy.context.window_manager.curve_tracer.TRparticle_f_start # Get frame start
-        TRparticle_f_end = bpy.context.window_manager.curve_tracer.TRparticle_f_end # Get frame end
+        TRparticleSpline = bTrace.TRcurve_spline # Get Spline selection  
+        TRstepSize = bTrace.TRparticle_step    # step size in frames
+        TRparticlerez = bTrace.TRcurve_resolution # Get Bevel resolution 
+        TRparticledepth = bTrace.TRcurve_depth # Get Bevel Depth
+        TRparticleauto = bTrace.TRparticle_auto # Get Auto Time Range
+        TRparticle_f_start = bTrace.TRparticle_f_start # Get frame start
+        TRparticle_f_end = bTrace.TRparticle_f_end # Get frame end
         
         tracer = bpy.data.curves.new('Splines','CURVE') # define what kind of object to create
         curve = bpy.data.objects.new('Tracer',tracer) # Create new object with settings listed above
@@ -925,7 +921,7 @@ class OBJECT_OT_fcnoise(bpy.types.Operator):
         
         bTrace = bpy.context.window_manager.curve_tracer
         TR_amp = bTrace.TRfcnoise_amp
-        TR_timescale = bTrace.TRfcnoise_amp
+        TR_timescale = bTrace.TRfcnoise_timescale
         TR_addkeyframe = bTrace.TRfcnoise_key
         
         # This sets properties for Loc, Rot and Scale if they're checked in the Tools window
@@ -1002,7 +998,7 @@ class OBJECT_OT_curvegrow(bpy.types.Operator):
                 po[1].radius = po[-2].radius = .65
             ra = [p.radius for p in po]
 
-        # record the keyframes
+            # record the keyframes
             for i in range(len(po)):
                 bpy.context.scene.frame_set(actual)
                 po[i].radius = 0
@@ -1047,14 +1043,12 @@ class OBJECT_OT_reset(bpy.types.Operator):
 
 
 #############################################################
-### MacKracken Select order tooll
+###  Select order tool - thanks to MacKracken
 #### writes bpy.selection when a new object is selected or deselected
 #### it compares bpy.selection with bpy.context.selected_objects
 #############################################################
 
 def select():
-	
-	#print(bpy.context.mode)
 	if bpy.context.mode=="OBJECT":
 		obj = bpy.context.object
 		sel = len(bpy.context.selected_objects)
