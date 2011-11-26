@@ -36,6 +36,8 @@ bl_info = {
 ### [   ] Grow Curve calculate duration
 ### [   ] Fix F-Curve Time Scale
 ### [   ] Grease Pencil doesn't show if nothing selected
+### [   ]  i made a 3dview header that stores the objects in the order they were selected and then writes a variable at bpy.selection that has the names of those objects
+### Doesn't Respect selection order
 
     
     
@@ -46,22 +48,20 @@ from bpy.props import *
 class TracerProperties(bpy.types.PropertyGroup):
     p = bpy.props
     enabled = p.IntProperty(default=0)
-    # Object Spline properties
-    TRobjectSplineType = p.EnumProperty(name="Spline", items=(("POLY", "Poly", "Use Poly spline type"),  ("NURBS", "Nurbs", "Use Nurbs spline type"), ("BEZIER", "Bezier", "Use Bezier spline type")), description="Choose which type of spline to use when curve is created", default="BEZIER")
-    # Object Handle properties
-    TRobjectHandleType = p.EnumProperty(name="Handle", items=(("ALIGNED", "Aligned", "Use Aligned Handle Type"), ("AUTOMATIC", "Automatic", "Use Auto Handle Type"), ("FREE_ALIGN", "Free Align", "Use Free Handle Type"), ("VECTOR", "Vector", "Use Vector Handle Type")), description="Choose which type of handle to use when curve is created",  default="VECTOR")
     # Object Curve Settings
-    TRobject_resolution = p.IntProperty(name="Bevel Resolution" , min=1, max=32, default=4, description="Adjust the Bevel resolution")
-    TRobject_depth = p.FloatProperty(name="Bevel Depth", min=0.0, max=100.0, default=0.125, description="Adjust the Bevel depth")
-    TRobject_u = p.IntProperty(name="Resolution U", min=0, max=64, default=12, description="Adjust the Surface resolution")
+    TRcurve_spline = p.EnumProperty(name="Spline", items=(("POLY", "Poly", "Use Poly spline type"),  ("NURBS", "Nurbs", "Use Nurbs spline type"), ("BEZIER", "Bezier", "Use Bezier spline type")), description="Choose which type of spline to use when curve is created", default="BEZIER")
+    TRcurve_handle = p.EnumProperty(name="Handle", items=(("ALIGNED", "Aligned", "Use Aligned Handle Type"), ("AUTOMATIC", "Automatic", "Use Auto Handle Type"), ("FREE_ALIGN", "Free Align", "Use Free Handle Type"), ("VECTOR", "Vector", "Use Vector Handle Type")), description="Choose which type of handle to use when curve is created",  default="VECTOR")
+    TRcurve_resolution = p.IntProperty(name="Bevel Resolution" , min=1, max=32, default=4, description="Adjust the Bevel resolution")
+    TRcurve_depth = p.FloatProperty(name="Bevel Depth", min=0.0, max=100.0, default=0.125, description="Adjust the Bevel depth")
+    TRcurve_u = p.IntProperty(name="Resolution U", min=0, max=64, default=12, description="Adjust the Surface resolution")
+    TRcurve_join = p.BoolProperty(name="Join Curves", default=False, description="Join all the curves after they have been created")
     # Option to Duplicate Mesh
-    TRobjectDuplicate = p.BoolProperty(name="Apply to Copy", default=False, description="Apply curve to a copy of object")
+    TRobject_duplicate = p.BoolProperty(name="Apply to Copy", default=False, description="Apply curve to a copy of object")
     # Distort Mesh options
-    TRmodular_scale = p.IntProperty(name="Modulation Scale", default=2, description="Add a scale to modulate the curve at random points, set to 0 to disable")
-    TRobject_noise = p.FloatProperty(name="Mesh Noise", min=0.0, max=50.0, default=0.00, description="Adjust noise added to mesh before adding curve")
-    # Particle Step Size    
+    TRdistort_modscale = p.IntProperty(name="Modulation Scale", default=2, description="Add a scale to modulate the curve at random points, set to 0 to disable")
+    TRdistort_noise = p.FloatProperty(name="Mesh Noise", min=0.0, max=50.0, default=0.00, description="Adjust noise added to mesh before adding curve")
+    # Particle Options    
     TRparticle_step = p.IntProperty(name="Step Size", min=1, max=50, default=5, description="Sample one every this number of frames")
-    # Connect Particle  properties
     TRparticle_auto = p.BoolProperty(name='Auto Frame Range', default=True, description='Calculate Frame Range from particles life')
     TRparticle_f_start = p.IntProperty( name='Start Frame', min=1, max=5000, default=1, description='Start frame')
     TRparticle_f_end = p.IntProperty( name='End Frame', min=1, max=5000, default=250, description='End frame')
@@ -71,7 +71,6 @@ class TracerProperties(bpy.types.PropertyGroup):
     TRfcnoise_scale = p.BoolProperty(name="Scale", default=False, description="Affect Scale")
     TRfcnoise_amp = p.IntProperty(name="Amp", min=1, max=500, default=5, description="Adjust the amplitude")
     TRfcnoise_timescale = p.FloatProperty(name="Time Scale", min=1, max=500, default=50, description="Adjust the time scale")
-    #  Add Keyframe setting for F-Curve
     TRfcnoise_key = p.BoolProperty(name="Add Keyframe", default=True, description="Keyframe is needed for tool, this adds a LocRotScale keyframe")
     # Toolbar Settings/Options Booleans
     TRcurve_settings = p.BoolProperty(name="Curve Settings", default=False, description="Change the settings for the created curve")
@@ -94,12 +93,14 @@ class TracerProperties(bpy.types.PropertyGroup):
     TRtool_handwrite = p.BoolProperty(name="Handwriting", default=False, description="Create and Animate curve using the grease pencil")
     TRtool_fcurve = p.BoolProperty(name="F-Curve Noise", default=False, description="Add F-Curve noise to selected objects")
     # Animation Options
+    TRanim_auto = p.BoolProperty(name='Auto Frame Range', default=True, description='Automatically calculate Frame Range')
     TRanim_f_start = p.IntProperty(name='Start', min=1, max=2500, default=1, description='Start frame / Hidden object')
     TRanim_length = p.IntProperty(name='Duration', min=1, soft_max=1000, max=2500, default=100, description='Animation Length')
     TRanim_f_fade = p.IntProperty(name='Fade After', min=0, soft_max=250, max=2500, default=10, description='Fade after this frames / Zero means no fade')
     TRanim_delay = p.IntProperty(name='Grow', min=0, max=50, default=5, description='Frames it takes a point to grow')
     TRanim_tails = p.BoolProperty(name='Tails', default=True, description='Set radius to zero for open splines endpoints')
     TRanim_keepr = p.BoolProperty(name='Radius', default=True, description='Try to keep radius data from original curve')
+    TRanimate = p.BoolProperty(name="Animate Result", default=False, description='Animate the final curve objects')
     # Convert to Curve options
     TRconvert_conti = p.BoolProperty(name='Continuous', default=True, description='Create a continuous curve using verts from mesh')
     TRconvert_everyedge = p.BoolProperty(name='Every Edge', default=False, description='Create a curve from all verts in a mesh')
@@ -107,7 +108,7 @@ class TracerProperties(bpy.types.PropertyGroup):
         items=(("CONTI", "Continuous", "Create a continuous curve using verts from mesh"),  ("EDGEALL", "All Edges", "Create a curve from every edge in a mesh"), ("SHARP", "Sharp Edges", "Create a curve from all edges marked as sharp") ), 
         description="Choose which type of spline to use when curve is created", default="CONTI")
     TRconvert_joinbefore = p.BoolProperty(name="Join objects before convert", default=False, description='Join all selected mesh to one object before converting to mesh')
-    TRanimate = p.BoolProperty(name="Animate Result", default=False, description='Animate the final curve objects')
+
 
 ############################    
 ## Draw Brush panel in Toolbar
@@ -117,18 +118,11 @@ class addTracerObjectPanel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'TOOLS'
     bl_context = 'objectmode'
-    
-    '''
-    #### Commented out to make it always show
-    @classmethod
-    def poll(cls, context):
-        return (context.object and context.object.type in ['MESH','FONT','CURVE'])'''
 
     def draw(self, context):
         layout = self.layout
         bTrace=bpy.context.window_manager.curve_tracer
         obj = bpy.context.object
-        sel = bpy.context.selected_objects
             
         ######################
         ## Start  Object Tools ###
@@ -138,6 +132,8 @@ class addTracerObjectPanel(bpy.types.Panel):
         TRdistort_curve = bTrace.TRdistort_curve
         TRtool_objectTrace, TRsettings_objectTrace, TRconvert_joinbefore, TRconvert_edgetype = bTrace.TRtool_objectTrace, bTrace.TRsettings_objectTrace, bTrace.TRconvert_joinbefore, bTrace.TRconvert_edgetype
         TRanimate = bTrace.TRanimate
+        TRanim_auto, TRcurve_join = bTrace.TRanim_auto, bTrace.TRcurve_join
+        TRsettings_particleTrace, TRsettings_particleConnect = bTrace.TRsettings_particleTrace, bTrace.TRsettings_particleConnect
 
         ############################
         ### Object Trace
@@ -162,24 +158,26 @@ class addTracerObjectPanel(bpy.types.Panel):
                 row.label(text='Edge Draw Method')
                 row = box.row(align=True)
                 row.prop(bTrace, 'TRconvert_edgetype')
-                box.prop(bTrace, "TRobjectDuplicate")
+                box.prop(bTrace, "TRobject_duplicate")
                 if len(sel) > 1 :
                     box.prop(bTrace, 'TRconvert_joinbefore')
                 row = box.row()
                 row.prop(bTrace, "TRdistort_curve")
                 if TRdistort_curve:
                     col = box.column(align=True)
-                    col.prop(bTrace, "TRmodular_scale")
-                    col.prop(bTrace, "TRobject_noise")
+                    col.prop(bTrace, "TRdistort_modscale")
+                    col.prop(bTrace, "TRdistort_noise")
                 row = box.row()
-                row.prop(bTrace, "TRanimate", text="Add Grow Curve")
+                row.prop(bTrace, "TRanimate", text="Add Grow Curve Animation")
                 if TRanimate:
                     # animation settings here
                     box.label(text='Frame Animation Settings:')
                     col = box.column(align=True)
-                    row = col.row(align=True)
-                    row.prop(bTrace,'TRanim_f_start')
-                    row.prop(bTrace,'TRanim_length')
+                    col.prop(bTrace, 'TRanim_auto')
+                    if not TRanim_auto:
+                        row = col.row(align=True)
+                        row.prop(bTrace,'TRanim_f_start')
+                        row.prop(bTrace,'TRanim_length')
                     row = col.row(align=True)
                     row.prop(bTrace,'TRanim_delay')
                     row.prop(bTrace,'TRanim_f_fade')
@@ -205,45 +203,43 @@ class addTracerObjectPanel(bpy.types.Panel):
         if TRtool_objectsConnect:
             row  = box.row ()
             row.label(text="Objects Connect", icon="OUTLINER_OB_EMPTY")
-            if len(sel) < 2 :
-                row = box.row()
-                row.label(text='Select Multiple Objects', icon='ERROR')
-            else:
-                row.operator("object.btobjectsconnect", text="Run!", icon="PLAY")
-                row = box.row()
-                row.prop(bTrace, "TRsettings_objectsConnect", icon='MODIFIER', text='Settings')
-                row.label(text='')
-                if TRsettings_objectsConnect:
-                    box.prop(bTrace, "TRconnect_noise")
-                    if TRconnect_noise:
-                        row = box.row()
-                        row.label(text="F-Curve Noise")
-                        row = box.row(align=True)
-                        row.prop(bTrace, "TRfcnoise_rot")
-                        row.prop(bTrace, "TRfcnoise_loc")
-                        row.prop(bTrace, "TRfcnoise_scale")
-                        col = box.column(align=True)
-                        col.prop(bTrace, "TRfcnoise_amp")
-                        col.prop(bTrace, "TRfcnoise_timescale")
-                        box.prop(bTrace, "TRfcnoise_key")
-                    # Grow settings here
+            row.operator("object.btobjectsconnect", text="Run!", icon="PLAY")
+            row = box.row()
+            row.prop(bTrace, "TRsettings_objectsConnect", icon='MODIFIER', text='Settings')
+            row.label(text='')
+            if TRsettings_objectsConnect:
+                box.prop(bTrace, "TRconnect_noise")
+                if TRconnect_noise:
                     row = box.row()
-                    row.prop(bTrace, "TRanimate", text="Add Grow Curve")
-                    if TRanimate:
-                        box.label(text='Frame Animation Settings:')
-                        col = box.column(align=True)
+                    row.label(text="F-Curve Noise")
+                    row = box.row(align=True)
+                    row.prop(bTrace, "TRfcnoise_rot")
+                    row.prop(bTrace, "TRfcnoise_loc")
+                    row.prop(bTrace, "TRfcnoise_scale")
+                    col = box.column(align=True)
+                    col.prop(bTrace, "TRfcnoise_amp")
+                    col.prop(bTrace, "TRfcnoise_timescale")
+                    box.prop(bTrace, "TRfcnoise_key")
+                # Grow settings here
+                row = box.row()
+                row.prop(bTrace, "TRanimate", text="Add Grow Curve Animation")
+                if TRanimate:
+                    box.label(text='Frame Animation Settings:')
+                    col = box.column(align=True)
+                    col.prop(bTrace, 'TRanim_auto')
+                    if not TRanim_auto:
                         row = col.row(align=True)
                         row.prop(bTrace,'TRanim_f_start')
                         row.prop(bTrace,'TRanim_length')
-                        row = col.row(align=True)
-                        row.prop(bTrace,'TRanim_delay')
-                        row.prop(bTrace,'TRanim_f_fade')
+                    row = col.row(align=True)
+                    row.prop(bTrace,'TRanim_delay')
+                    row.prop(bTrace,'TRanim_f_fade')
 
-                        box.label(text='Additional Settings')
-                        row = box.row()
-                        row.prop(bTrace,'TRanim_tails')
-                        row.prop(bTrace,'TRanim_keepr')
-        
+                    box.label(text='Additional Settings')
+                    row = box.row()
+                    row.prop(bTrace,'TRanim_tails')
+                    row.prop(bTrace,'TRanim_keepr')
+    
         ############################
         ### Handwriting Tools
         ############################
@@ -260,7 +256,24 @@ class addTracerObjectPanel(bpy.types.Panel):
             row = box.row()
             row.label(text='Handwriting', icon='BRUSH_DATA')
             row.operator("curve.btwriting", text="Run!", icon='PLAY')
-            box.prop(bTrace, "TRanimate", text="Grow Curve Settings")
+            box.prop(bTrace, "TRanimate", text="Grow Curve Animation Settings")
+            if TRanimate:
+                # animation settings here
+                box.label(text='Frame Animation Settings:')
+                col = box.column(align=True)
+                col.prop(bTrace, 'TRanim_auto')
+                if not TRanim_auto:
+                    row = col.row(align=True)
+                    row.prop(bTrace,'TRanim_f_start')
+                    row.prop(bTrace,'TRanim_length')
+                row = col.row(align=True)
+                row.prop(bTrace,'TRanim_delay')
+                row.prop(bTrace,'TRanim_f_fade')
+
+                box.label(text='Additional Settings')
+                row = box.row()
+                row.prop(bTrace,'TRanim_tails')
+                row.prop(bTrace,'TRanim_keepr')
             box.label(text='Grease Pencil Writing Tools')
             col = box.column(align=True)
             row = col.row()
@@ -273,22 +286,6 @@ class addTracerObjectPanel(bpy.types.Panel):
             row.operator("gpencil.data_unlink", text="Delete Grease Pencil Layer", icon="CANCEL")
             row = box.row()
             
-            if TRanimate:
-                # animation settings here
-                box.label(text='Frame Animation Settings:')
-                col = box.column(align=True)
-                row = col.row(align=True)
-                row.prop(bTrace,'TRanim_f_start')
-                row.prop(bTrace,'TRanim_length')
-                row = col.row(align=True)
-                row.prop(bTrace,'TRanim_delay')
-                row.prop(bTrace,'TRanim_f_fade')
-
-                box.label(text='Additional Settings')
-                row = box.row()
-                row.prop(bTrace,'TRanim_tails')
-                row.prop(bTrace,'TRanim_keepr')
-
         
         ############################
         ### Particle Trace
@@ -303,14 +300,34 @@ class addTracerObjectPanel(bpy.types.Panel):
             ParticleText="Show: Particle Trace"
         row.prop(bTrace, "TRtool_particleTrace", icon="PARTICLES", text=ParticleText)
         if TRtool_particleTrace:
-            if bpy.context.active_object.particle_systems:
+            row = box.row()
+            row.label(text="Particle Trace", icon="PARTICLES")
+            row.operator("particles.particletrace", text="Run!", icon="PLAY")
+            row = box.row()
+            row.prop(bTrace, 'TRsettings_particleTrace', icon='MODIFIER', text='Settings')
+            row.label(text='')
+            if TRsettings_particleTrace:
+                box.prop(bTrace, "TRparticle_step")
                 row = box.row()
-                row.label(text="Particle Trace", icon="PARTICLES")
-                row.operator("particles.particletrace", text="Run!", icon="PLAY")
-                row = box.row()
-                row.prop(bTrace, "TRparticle_step")
-            else:
-                box.label(text="Object Needs Particle System", icon="ERROR")
+                row.prop(bTrace, "TRcurve_join")
+                row.prop(bTrace, "TRanimate", text="Add Grow Curve Animation")
+                if TRanimate:
+                    # animation settings here
+                    box.label(text='Frame Animation Settings:')
+                    col = box.column(align=True)
+                    col.prop(bTrace, 'TRanim_auto')
+                    if not TRanim_auto:
+                        row = col.row(align=True)
+                        row.prop(bTrace,'TRanim_f_start')
+                        row.prop(bTrace,'TRanim_length')
+                    row = col.row(align=True)
+                    row.prop(bTrace,'TRanim_delay')
+                    row.prop(bTrace,'TRanim_f_fade')
+
+                    box.label(text='Additional Settings')
+                    row = box.row()
+                    row.prop(bTrace,'TRanim_tails')
+                    row.prop(bTrace,'TRanim_keepr')
         
         ############################
         ### Connect Particles
@@ -326,20 +343,39 @@ class addTracerObjectPanel(bpy.types.Panel):
             ParticleConnText="Show: Particle Connect"
         row.prop(bTrace, "TRtool_particleConnect", icon="MOD_PARTICLES", text=ParticleConnText)
         if TRtool_particleConnect:
-            if bpy.context.active_object.particle_systems:
-                row = box.row()
-                row.label(text='Particle Connect', icon='MOD_PARTICLES')
-                row.operator("particles.connect", icon="PLAY", text='Run!')
-                row = box.row()
-                row.prop(bTrace, "TRparticle_step")
-                box.prop(bTrace, 'TRparticle_auto')
+            row = box.row()
+            row.label(text='Particle Connect', icon='MOD_PARTICLES')
+            row.operator("particles.connect", icon="PLAY", text='Run!')
+            row = box.row()
+            row.prop(bTrace, 'TRsettings_particleConnect', icon='MODIFIER', text='Settings')
+            row.label(text='')
+            if TRsettings_particleConnect:
+                box.prop(bTrace, "TRparticle_step")
+                row= box.row()
+                row.prop(bTrace, 'TRparticle_auto')
+                row.prop(bTrace, 'TRanimate', text='Add Grow Curve Animation')
                 col = box.column(align=True)
                 if not TRparticle_auto:
                     row = box.row(align=True)
                     row.prop(bTrace, 'TRparticle_f_start')
                     row.prop(bTrace, 'TRparticle_f_end')
-            else:
-                box.label(text="Object Needs Particle System", icon="ERROR")
+                if TRanimate:
+                    # animation settings here
+                    box.label(text='Frame Animation Settings:')
+                    col = box.column(align=True)
+                    col.prop(bTrace, 'TRanim_auto')
+                    if not TRanim_auto:
+                        row = col.row(align=True)
+                        row.prop(bTrace,'TRanim_f_start')
+                        row.prop(bTrace,'TRanim_length')
+                    row = col.row(align=True)
+                    row.prop(bTrace,'TRanim_delay')
+                    row.prop(bTrace,'TRanim_f_fade')
+
+                    box.label(text='Additional Settings')
+                    row = box.row()
+                    row.prop(bTrace,'TRanim_tails')
+                    row.prop(bTrace,'TRanim_keepr')
 
         ############################
         ## Curve options
@@ -368,14 +404,14 @@ class addTracerObjectPanel(bpy.types.Panel):
                 ############################
                 ## Object Curve Settings 
                 ############################
-                TRobjectSplineType, TRobjectHandleType, TRobject_depth, TRobject_resolution, TRobject_u = bTrace.TRobjectSplineType, bTrace.TRobjectHandleType, bTrace.TRobject_depth, bTrace.TRobject_resolution, bTrace.TRobject_u
+                TRcurve_spline, TRcurve_handle, TRcurve_depth, TRcurve_resolution, TRcurve_u = bTrace.TRcurve_spline, bTrace.TRcurve_handle, bTrace.TRcurve_depth, bTrace.TRcurve_resolution, bTrace.TRcurve_u
                 box.label(text="New Curve Settings")
-                box.prop(bTrace, "TRobjectSplineType")
-                box.prop(bTrace, "TRobjectHandleType")
+                box.prop(bTrace, "TRcurve_spline")
+                box.prop(bTrace, "TRcurve_handle")
                 col = box.column(align=True)
-                col.prop(bTrace, "TRobject_depth")
-                col.prop(bTrace, "TRobject_resolution")
-                col.prop(bTrace, "TRobject_u")
+                col.prop(bTrace, "TRcurve_depth")
+                col.prop(bTrace, "TRcurve_resolution")
+                col.prop(bTrace, "TRcurve_u")
 
                 
         #######################
@@ -388,11 +424,11 @@ class addTracerObjectPanel(bpy.types.Panel):
         TRsettings_growCurve = bTrace.TRsettings_growCurve
         box = self.layout.box()
         row = box.row()
-        GrowText="Show: Grow Curve"
+        GrowText="Show: Grow Curve Animation"
         if TRanimation_settings:
-            GrowText="Hide: Grow Curve"
+            GrowText="Hide: Grow Curve Animation"
         else:
-            GrowText="Show: Grow Curve"
+            GrowText="Show: Grow Curve Animation"
         row.prop(bTrace, 'TRanimation_settings', icon="META_BALL", text=GrowText)
         if TRanimation_settings:
             row = box.row()
@@ -469,7 +505,7 @@ class OBJECT_OT_objecttrace(bpy.types.Operator):
         
         # Run through each selected object and convert to to a curved object
         brushObj = bpy.context.selected_objects
-        TRobjectDupli = bpy.context.window_manager.curve_tracer.TRobjectDuplicate # Get duplicate check setting
+        TRobjectDupli = bpy.context.window_manager.curve_tracer.TRobject_duplicate # Get duplicate check setting
         TRconvert_joinbefore = bpy.context.window_manager.curve_tracer.TRconvert_joinbefore
         TRanimate = bpy.context.window_manager.curve_tracer.TRanimate
         # Duplicate Mesh
@@ -485,7 +521,7 @@ class OBJECT_OT_objecttrace(bpy.types.Operator):
             bpy.context.scene.objects.active = i
             if i and i.type == 'MESH':
                 bpy.ops.object.btconvertcurve()
-                bpy.ops.object.btaddmat()
+                addtracemat(bpy.context.object.data)
             if TRanimate:
                 bpy.ops.curve.btgrow()
         return{"FINISHED"}
@@ -506,19 +542,19 @@ class OBJECT_OT_objectconnect(bpy.types.Operator):
     
     @classmethod
     def poll(cls, context):
-        return (context.object and context.object.type in ['MESH'])
+        return (len(bpy.context.selected_objects) > 1)
     
     def invoke(self, context, event):
         import bpy
         list = []
         bTrace = bpy.context.window_manager.curve_tracer
-        TRobjectHandle = bTrace.TRobjectHandleType # Get Handle selection
-        TRobjectrez = bTrace.TRobject_resolution # Get Bevel resolution 
-        TRobjectdepth = bTrace.TRobject_depth # Get Bevel Depth
+        TRobjectHandle = bTrace.TRcurve_handle # Get Handle selection
+        TRobjectrez = bTrace.TRcurve_resolution # Get Bevel resolution 
+        TRobjectdepth = bTrace.TRcurve_depth # Get Bevel Depth
         TRanimate = bTrace.TRanimate # add Grow Curve
         
         # list objects
-        for a in bpy.context.selected_objects:  
+        for a in bpy.selection:  
             list.append(a)
             a.select = False
 
@@ -555,7 +591,7 @@ class OBJECT_OT_objectconnect(bpy.types.Operator):
             bpy.ops.object.editmode_toggle()
             curve.data.splines[0].bezier_points[i].select_control_point = False
             list[i].select = False
-        bpy.ops.object.btaddmat() # Add material
+        addtracemat(bpy.context.object.data) # Add material
         if TRanimate: # Add Curve Grow it?
             bpy.ops.curve.btgrow()
         for a in list : a.select = True
@@ -571,6 +607,21 @@ class OBJECT_OT_objectconnect(bpy.types.Operator):
 ## Particle Trace
 ## creates a curve from each particle of a system
 ################## ################## ################## ############
+def  curvetracer(curvename, splinename):
+    bTrace = bpy.context.window_manager.curve_tracer
+    tracer = bpy.data.curves.new(splinename,'CURVE') 
+    tracer.dimensions = '3D'
+    curve = bpy.data.objects.new(curvename, tracer)
+    bpy.context.scene.objects.link(curve)
+    addtracemat(tracer) #Add material
+    # tracer.materials.append(bpy.data.materials.get('TraceMat'))
+    try: tracer.fill_mode = 'FULL'
+    except: tracer.use_fill_front = tracer.use_fill_back = False
+    tracer.bevel_resolution = bTrace.TRcurve_resolution
+    tracer.bevel_depth = bTrace.TRcurve_depth
+    tracer.resolution_u = bTrace.TRcurve_u
+    return tracer
+    
 
 class OBJECT_OT_particletrace(bpy.types.Operator):
     bl_idname = "particles.particletrace"
@@ -578,39 +629,37 @@ class OBJECT_OT_particletrace(bpy.types.Operator):
     bl_description = "Creates a curve from each particle of a system. Keeping particle amount under 250 will make this run faster."
     bl_options = {'REGISTER', 'UNDO'}
     
-    def invoke(self, context, event):
-        import bpy
-
-        TRparticleHandle = bpy.context.window_manager.curve_tracer.TRobjectHandleType # Get Handle selection
-        TRparticleSpline = bpy.context.window_manager.curve_tracer.TRobjectSplineType # Get Spline selection
-        TRstepSize = bpy.context.window_manager.curve_tracer.TRparticle_step    # step size in frames
-        TRparticlerez = bpy.context.window_manager.curve_tracer.TRobject_resolution # Get Bevel resolution 
-        TRparticledepth = bpy.context.window_manager.curve_tracer.TRobject_depth # Get Bevel Depth
-        
+    @classmethod
+    def poll(cls, context):
+        return (bpy.context.object and bpy.context.object.particle_systems)
+    
+    def execute(self, context):
+        bTrace = bpy.context.window_manager.curve_tracer
+        TRstepSize = bTrace.TRparticle_step    # step size in frames
+        TRcurve_join = bTrace.TRcurve_join # join curves after created
         obj = bpy.context.object
-        if obj.particle_systems:
-            ps = obj.particle_systems[0]
-            mat = bpy.data.materials.new('mat')
-            mat.diffuse_color = [1,.5,0]
-            mat.emit = 0.5
-            for x in ps.particles:
-                tracer = bpy.data.curves.new('tracer','CURVE') #
-                tracer.dimensions = '3D'
-                spline = tracer.splines.new('BEZIER')
-                spline.bezier_points.add((x.lifetime-1)//TRstepSize) #add point to spline based on 
-                curve = bpy.data.objects.new('path.000',tracer)
-                bpy.context.scene.objects.link(curve)
-                for t in list(range(int(x.lifetime))):
-                    bpy.context.scene.frame_set(t+x.birth_time)
-                    if not t%TRstepSize:            
-                        p = spline.bezier_points[t//TRstepSize]
-                        p.co = x.location
-                        p.handle_right_type='AUTO'
-                        p.handle_left_type='AUTO'            
-                tracer.materials.append(mat)
-                tracer.bevel_resolution = TRparticlerez # get resolution from panel
-                tracer.fill_mode = 'FULL'
-                tracer.bevel_depth = TRparticledepth # get depth from panel
+        ps = obj.particle_systems.active
+        
+        if bTrace.TRcurve_join:
+            tracer = curvetracer('Tracer', 'Splines')
+        
+        for x in ps.particles:
+            if not bTrace.TRcurve_join:
+                tracer = curvetracer('Tracer.000', 'Spline.000')
+            spline = tracer.splines.new('BEZIER')
+            spline.bezier_points.add((x.lifetime-1)//TRstepSize) #add point to spline based on 
+            for t in list(range(int(x.lifetime))):
+                bpy.context.scene.frame_set(t+x.birth_time)
+                if not t%TRstepSize:            
+                    p = spline.bezier_points[t//TRstepSize]
+                    p.co = x.location
+                    p.handle_right_type='AUTO'
+                    p.handle_left_type='AUTO'     
+                particlesObj = bpy.context.selected_objects
+                for i in particlesObj:
+                    bpy.context.scene.objects.active = i
+                    if bTrace.TRanimate:
+                        bpy.ops.curve.btgrow()
         return{"FINISHED"}
 
 
@@ -640,11 +689,12 @@ class OBJECT_OT_traceallparticles(bpy.types.Operator):
             self.report('INFO',"Grid distribution mode for particles not supported.")
             return{'FINISHED'}
         
-        TRparticleHandle = bpy.context.window_manager.curve_tracer.TRobjectHandleType # Get Handle selection
-        TRparticleSpline = bpy.context.window_manager.curve_tracer.TRobjectSplineType # Get Spline selection  
+        bTrace = bpy.context.window_manager.curve_tracer
+        TRparticleHandle = bTrace.TRcurve_handle # Get Handle selection
+        TRparticleSpline = bpy.context.window_manager.curve_tracer.TRcurve_spline # Get Spline selection  
         TRstepSize = bpy.context.window_manager.curve_tracer.TRparticle_step    # step size in frames
-        TRparticlerez = bpy.context.window_manager.curve_tracer.TRobject_resolution # Get Bevel resolution 
-        TRparticledepth = bpy.context.window_manager.curve_tracer.TRobject_depth # Get Bevel Depth
+        TRparticlerez = bpy.context.window_manager.curve_tracer.TRcurve_resolution # Get Bevel resolution 
+        TRparticledepth = bpy.context.window_manager.curve_tracer.TRcurve_depth # Get Bevel Depth
         TRparticleauto = bpy.context.window_manager.curve_tracer.TRparticle_auto # Get Auto Time Range
         TRparticle_f_start = bpy.context.window_manager.curve_tracer.TRparticle_f_start # Get frame start
         TRparticle_f_end = bpy.context.window_manager.curve_tracer.TRparticle_f_end # Get frame end
@@ -661,11 +711,7 @@ class OBJECT_OT_traceallparticles(bpy.types.Operator):
         tracer.fill_mode = 'FULL'
         tracer.bevel_depth = 0.025
 
-        if 'mat' not in bpy.data.materials:
-            mat = bpy.data.materials.new('mat')
-            mat.diffuse_color = [0]*3
-            mat.use_shadeless = True
-        tracer.materials.append(bpy.data.materials.get('mat'))
+        addtracemat(tracer) #Add material
 
         if TRparticleauto:
             f_start = int(set.frame_start)
@@ -692,6 +738,11 @@ class OBJECT_OT_traceallparticles(bpy.types.Operator):
                     spline.bezier_points[bFrames].keyframe_insert('co')
                     spline.bezier_points[bFrames].keyframe_insert('handle_left')
                     spline.bezier_points[bFrames].keyframe_insert('handle_right')
+        particlesObj = bpy.context.selected_objects
+        for i in particlesObj:
+            bpy.context.scene.objects.active = i
+            if bTrace.TRanimate:
+                bpy.ops.curve.btgrow()
         return{'FINISHED'}
 
 ################## ################## ################## ############
@@ -719,7 +770,7 @@ class OBJECT_OT_writing(bpy.types.Operator):
         for i in writeObj:
             bpy.context.scene.objects.active = i
             bpy.ops.curve.btgrow()
-            bpy.ops.object.btaddmat()
+            addtracemat(bpy.context.object.data) #Add material
         # Delete grease pencil strokes
         bpy.context.scene.objects.active = gactive
         bpy.ops.gpencil.data_unlink()
@@ -746,15 +797,15 @@ class OBJECT_OT_convertcurve(bpy.types.Operator):
         from mathutils import Vector
 
         bTrace = bpy.context.window_manager.curve_tracer
-        TRmodular_scale = bTrace.TRmodular_scale # add a scale to the modular random 
+        TRdistort_modscale = bTrace.TRdistort_modscale # add a scale to the modular random 
         TRdistort_curve = bTrace.TRdistort_curve    # modulate the resulting curve
-        TRobjectHandle = bTrace.TRobjectHandleType # Get Handle selection
-        TRobjectSpline = bTrace.TRobjectSplineType # Get Spline selection
-        TRobjectDupli = bTrace.TRobjectDuplicate # Get duplicate check setting
-        TRobjectrez = bTrace.TRobject_resolution # Get Bevel resolution 
-        TRobjectdepth = bTrace.TRobject_depth # Get Bevel Depth
-        TRobjectU = bTrace.TRobject_u # Get Bevel Depth
-        TRobjectnoise = bTrace.TRobject_noise # Get Bevel Depth
+        TRobjectHandle = bTrace.TRcurve_handle # Get Handle selection
+        TRobjectSpline = bTrace.TRcurve_spline # Get Spline selection
+        TRobjectDupli = bTrace.TRobject_duplicate # Get duplicate check setting
+        TRobjectrez = bTrace.TRcurve_resolution # Get Bevel resolution 
+        TRobjectdepth = bTrace.TRcurve_depth # Get Bevel Depth
+        TRobjectU = bTrace.TRcurve_u # Get Bevel Depth
+        TRobjectnoise = bTrace.TRdistort_noise # Get Bevel Depth
         TRconvert_joinbefore = bTrace.TRconvert_joinbefore 
         TRconvert_edgetype = bTrace.TRconvert_edgetype
         TRtraceobjects = bpy.context.selected_objects # create a list with all the selected objects
@@ -835,7 +886,7 @@ class OBJECT_OT_convertcurve(bpy.types.Operator):
         
         # Modulate curve radius and add distortion
         if TRdistort_curve: 
-            scale = TRmodular_scale
+            scale = TRdistort_modscale
             if scale == 0:
                 return{"FINISHED"}
             for u in obj.data.splines:
@@ -848,22 +899,15 @@ class OBJECT_OT_convertcurve(bpy.types.Operator):
 ###################################################################
 #### Add Tracer Material
 ###################################################################        
-class OBJECT_OT_addtracermat(bpy.types.Operator):
-    bl_idname = "object.btaddmat"
-    bl_label = "bTrace: Add Material"
-    bl_description = "Creates a material for bTrace objects"
-    bl_options = {'REGISTER', 'UNDO'}
 
-    def execute(self, context):
-        import bpy
+def addtracemat(matobj):
+    if 'TraceMat' not in bpy.data.materials:
+        TraceMat = bpy.data.materials.new('TraceMat')
+        TraceMat.diffuse_color = [0,.5,1]
+        TraceMat.specular_intensity = 0.5
+    matobj.materials.append(bpy.data.materials.get('TraceMat'))
+    return {'FINISHED'}
         
-        if 'TraceMat' not in bpy.data.materials:
-            TraceMat = bpy.data.materials.new('TraceMat')
-            TraceMat.diffuse_color = [0,.5,1]
-            TraceMat.specular_intensity = 0.5
-        bpy.context.object.data.materials.append(bpy.data.materials.get('TraceMat'))
-        return {'FINISHED'}
-
 ################## ################## ################## ############
 ## F-Curve Noise
 ## will add noise modifiers to each selected object f-curves
@@ -925,10 +969,14 @@ class OBJECT_OT_curvegrow(bpy.types.Operator):
     bl_label = 'Run Script'
     bl_description = 'Keyframe points radius'
     bl_options = {'REGISTER', 'UNDO'}
-
+    
+    @classmethod
+    def poll(cls, context):
+        return (context.object and context.object.type in ['FONT','CURVE'])
+    
     def execute(self, context):
         bTrace, obj = bpy.context.window_manager.curve_tracer, bpy.context.object
-
+        TRanim_f_start, TRanim_length, TRanim_auto = bTrace.TRanim_f_start, bTrace.TRanim_length, bTrace.TRanim_auto
         # make the curve visible
         try: obj.data.fill_mode = 'FULL'
         except: obj.data.use_fill_front = obj.data.use_fill_back = False
@@ -936,12 +984,14 @@ class OBJECT_OT_curvegrow(bpy.types.Operator):
             obj.data.bevel_resolution = 5
         if not obj.data.bevel_depth:
             obj.data.bevel_depth = 0.1
-            
+        if TRanim_auto:
+            TRanim_f_start = bpy.context.scene.frame_start
+            TRanim_length = bpy.context.scene.frame_end
         # get points data and beautify
-        actual, total = bTrace.TRanim_f_start, 0
+        actual, total = TRanim_f_start, 0
         for sp in obj.data.splines:
             total += len(sp.points) + len(sp.bezier_points)
-        step = bTrace.TRanim_length / total
+        step = TRanim_length / total
         for sp in obj.data.splines:
             sp.radius_interpolation = 'BSPLINE'
             po = [p for p in sp.points] + [p for p in sp.bezier_points]
@@ -995,10 +1045,56 @@ class OBJECT_OT_reset(bpy.types.Operator):
                     p.radius = 1
         return{'FINISHED'}
 
+
+#############################################################
+### MacKracken Select order tooll
+#### writes bpy.selection when a new object is selected or deselected
+#### it compares bpy.selection with bpy.context.selected_objects
+#############################################################
+
+def select():
+	
+	#print(bpy.context.mode)
+	if bpy.context.mode=="OBJECT":
+		obj = bpy.context.object
+		sel = len(bpy.context.selected_objects)
+		
+		if sel==0:
+			bpy.selection=[]
+		else:
+			if sel==1:
+				bpy.selection=[]
+				bpy.selection.append(obj)
+			elif sel>len(bpy.selection):
+				for sobj in bpy.context.selected_objects:
+					if (sobj in bpy.selection)==False:
+						bpy.selection.append(sobj)
+			
+			elif sel<len(bpy.selection):
+				for it in bpy.selection:
+					if (it in bpy.context.selected_objects)==False:
+						bpy.selection.remove(it)		
+
+	#on edit mode doesnt work well
+
+#executes selection by order at 3d view
+class Selection(bpy.types.Header):
+	bl_label = "Selection"
+	bl_space_type = "VIEW_3D"
+	
+	def __init__(self):
+		#print("hey")
+		select()
+
+	def draw(self, context):
+		layout = self.layout
+		row = layout.row()
+		row.label("Sel: "+str(len(bpy.selection)))      
+
+### Define Classes to register
 classes = [TracerProperties,
     addTracerObjectPanel,
     OBJECT_OT_convertcurve,
-    OBJECT_OT_addtracermat,
     OBJECT_OT_objecttrace,
     OBJECT_OT_objectconnect,
     OBJECT_OT_writing,
@@ -1006,7 +1102,8 @@ classes = [TracerProperties,
     OBJECT_OT_traceallparticles,
     OBJECT_OT_curvegrow,
     OBJECT_OT_reset,
-    OBJECT_OT_fcnoise]
+    OBJECT_OT_fcnoise,
+    Selection]
 
 def register():
     for c in classes:

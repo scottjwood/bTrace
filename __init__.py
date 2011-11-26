@@ -36,7 +36,6 @@ from bpy.props import *
 classes = [TracerProperties,
     addTracerObjectPanel,
     OBJECT_OT_convertcurve,
-    OBJECT_OT_addtracermat,
     OBJECT_OT_objecttrace,
     OBJECT_OT_objectconnect,
     OBJECT_OT_writing,
@@ -44,7 +43,8 @@ classes = [TracerProperties,
     OBJECT_OT_traceallparticles,
     OBJECT_OT_curvegrow,
     OBJECT_OT_reset,
-    OBJECT_OT_fcnoise]
+    OBJECT_OT_fcnoise,
+    Selection]
 
 def register():
     for c in classes:
